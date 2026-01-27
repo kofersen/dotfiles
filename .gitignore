@@ -1,0 +1,23 @@
+# secrets
+*.env
+*.env.*
+*.key
+*.pem
+*.gpg
+*.age
+id_rsa
+id_ed25519
+
+# ssh / gpg private data
+.ssh/
+.gnupg/
+
+# local junk
+.cache/
+.local/
+tmp/
+*.swp
+*.log
+*~
+.DS_Store
+Thumbs.db
