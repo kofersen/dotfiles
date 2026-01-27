@@ -1,0 +1,2 @@
+alias lsd="lsd -atl"
+alias cls="clear && ls"
