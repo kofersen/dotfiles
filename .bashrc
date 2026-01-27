@@ -9,6 +9,11 @@ alias ls='ls -lat --color=auto'
 alias grep='grep --color=auto'
 PS1='[\u@\h \W]\$ '
 
-export GPG_TTY=$(tty)
+# GPG needs to know the active TTY
+export GPG_TTY="$(tty)"
 
-source $HOME/.shortcuts
+# Load PATH definitions
+[ -f "$HOME/.paths" ] && source "$HOME/.paths"
+
+# Load shortcuts definitions (for the sake of QoL)
+[ -f "$HOME/.shortcuts" ] && source "$HOME/.shortcuts"
