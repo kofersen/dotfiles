@@ -1,0 +1,48 @@
+{
+  "MetricsReportingEnabled": false,
+  "UrlKeyedAnonymizedDataCollectionEnabled": false,
+  "CrashReportingEnabled": false,
+
+  "SafeBrowsingProtectionLevel": 0,
+  "SafeBrowsingExtendedReportingEnabled": false,
+  "SafeBrowsingDeepScanningEnabled": false,
+
+  "SyncDisabled": true,
+  "BrowserSignin": 0,
+
+  "AutoFillEnabled": false,
+  "AutofillAddressEnabled": false,
+  "AutofillCreditCardEnabled": false,
+  "PasswordManagerEnabled": false,
+  "PasswordLeakDetectionEnabled": false,
+
+  "SpellCheckServiceEnabled": false,
+  "SearchSuggestEnabled": false,
+  "TranslateEnabled": false,
+
+  "NetworkPredictionOptions": 2,
+  "DnsPrefetchEnabled": false,
+
+  "AlternateErrorPagesEnabled": false,
+  "BackgroundModeEnabled": false,
+
+  "WebRtcEventLogCollectionAllowed": false,
+  "WebRtcTextLogCollectionAllowed": false,
+
+  "UserFeedbackAllowed": false,
+
+  "PrivacySandboxPromptEnabled": false,
+  "PrivacySandboxAdMeasurementEnabled": false,
+  "PrivacySandboxAdTopicsEnabled": false,
+  "PrivacySandboxSiteEnabledAdsEnabled": false,
+
+  "CloudPrintProxyEnabled": false,
+  "PromotionsEnabled": false,
+  "HelpMeWriteSettings": 1,
+  "ShoppingListEnabled": false,
+  "MediaRecommendationsEnabled": false,
+
+  "ComponentUpdatesEnabled": false,
+
+  "ExtensionManifestV2Availability": 2
+}
