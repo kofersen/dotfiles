@@ -12,8 +12,7 @@ PS1='[\u@\h \W]\$ '
 # GPG needs to know the active TTY
 export GPG_TTY="$(tty)"
 
-# Load PATH definitions
-[ -f "$HOME/.paths" ] && source "$HOME/.paths"
-
-# Load shortcuts definitions (for the sake of QoL)
-[ -f "$HOME/.shortcuts" ] && source "$HOME/.shortcuts"
+# Source modular shell configuration
+for f in ~/.paths ~/.functions; do
+  [ -f "$f" ] && . "$f"
+done
