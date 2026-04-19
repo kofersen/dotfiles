@@ -1,7 +1,0 @@
-#
-# ~/.shortcuts
-# Personal shortcuts, aliases, and workflow helpers
-#
-
-alias l='lsd -atl'
-alias cls='clear && ls'
