@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# ~/.local/bin/sandbox
+set -euo pipefail
+
+allow_home=0
+allow_net=0
+keep_tty=0
+env_allow=()
+extra_binds=()
+
+_env_name_ok='^[A-Za-z_][A-Za-z0-9_]*$'
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --home) allow_home=1; shift ;;
+    --net)  allow_net=1;  shift ;;
+    --tty)  keep_tty=1;   shift ;;
+    --env)
+      [ "$#" -ge 2 ] || { echo "sandbox: --env requires an argument" >&2; exit 64; }
+      if ! [[ "$2" =~ $_env_name_ok ]]; then
+        echo "sandbox: --env: '$2' is not a valid env var name" >&2
+        exit 64
+      fi
+      env_allow+=("$2"); shift 2 ;;
+    --bind-extra)
+      [ "$#" -ge 3 ] || { echo "sandbox: --bind-extra requires SRC DST" >&2; exit 64; }
+      extra_binds+=(--bind "$2" "$3"); shift 3 ;;
+    --ro-bind-extra)
+      [ "$#" -ge 3 ] || { echo "sandbox: --ro-bind-extra requires SRC DST" >&2; exit 64; }
+      extra_binds+=(--ro-bind-try "$2" "$3"); shift 3 ;;
+    --) shift; break ;;
+    -h|--help)
+      cat <<'EOF'
+usage: sandbox [options] [--] <command> [args...]
+
+Run a command in a bwrap sandbox scoped to $PWD.
+
+Defaults:
+  - Network DENIED. --net to allow.
+  - Env CLEARED except: PATH, HOME (fake /tmp/home), USER, LOGNAME, SHELL,
+    TERM, LANG, XDG_RUNTIME_DIR.
+  - New session (no controlling TTY). --tty to keep the TTY (job control).
+  - PWD bound rw. Refuses $HOME/ancestors and system paths unless --home.
+
+Options:
+  --home                   Allow running from $HOME or an ancestor.
+  --net                    Allow network access.
+  --tty                    Keep the controlling TTY (enables job control).
+  --env VAR                Forward env var VAR. Repeatable. [A-Za-z_][A-Za-z0-9_]*.
+  --bind-extra SRC DST     Bind SRC to DST rw. Repeatable.
+  --ro-bind-extra SRC DST  Bind SRC to DST ro. Repeatable.
+  --                       End of sandbox options.
+EOF
+      exit 0 ;;
+    -*) echo "sandbox: unknown option '$1' (use -- to pass flags to the command)" >&2; exit 64 ;;
+    *)  break ;;
+  esac
+done
+
+if [ "$#" -eq 0 ]; then
+  echo "usage: sandbox [options] [--] <command> [args...]" >&2
+  exit 64
+fi
+
+pwd_real="$(realpath "$PWD")"
+home_real="$(realpath "$HOME")"
+
+# Guardrail 1: $HOME or ancestor.
+if [ "$allow_home" -ne 1 ]; then
+  if [ "$pwd_real" = "/" ] \
+    || [ "$pwd_real" = "$home_real" ] \
+    || [ "${home_real#"$pwd_real"/}" != "$home_real" ]; then
+    echo "sandbox: refusing to run from '$PWD' (\$HOME or an ancestor)" >&2
+    echo "  Binding it rw would expose dotfiles, SSH/GPG keys, browser profiles." >&2
+    echo "  Pass --home if intentional, or cd into a project directory." >&2
+    exit 1
+  fi
+fi
+
+# Guardrail 2: $PWD must not be a sandbox mount target or an ancestor of one.
+# Descendants of shared roots (e.g. /tmp/myproject) are fine — they don't shadow
+# the sandbox's internal mounts.
+case "$pwd_real" in
+  /|/tmp|/tmp/home|/tmp/home/*|/tmp/runtime|/tmp/runtime/*|\
+  /proc|/proc/*|/dev|/dev/*|/sys|/sys/*|\
+  /etc|/etc/*|/usr|/usr/*|/run|/run/*|\
+  /bin|/bin/*|/sbin|/sbin/*|/lib|/lib/*|/lib64|/lib64/*)
+    echo "sandbox: refusing to run from '$PWD'" >&2
+    echo "  This path is mounted by the sandbox internally (or is an ancestor" >&2
+    echo "  of one). Binding \$PWD here would shadow the sandbox's own mounts." >&2
+    echo "  cd into a subdirectory that isn't /tmp/home or /tmp/runtime." >&2
+    exit 1 ;;
+esac
+
+env_args=()
+for var in "${env_allow[@]}"; do
+  if [ -n "${!var+x}" ]; then
+    env_args+=(--setenv "$var" "${!var}")
+  fi
+done
+
+net_args=()
+[ "$allow_net" -ne 1 ] && net_args+=(--unshare-net)
+
+tty_args=()
+[ "$keep_tty" -ne 1 ] && tty_args+=(--new-session)
+
+exec bwrap \
+  "${tty_args[@]}" \
+  --clearenv \
+  --setenv PATH            "/usr/bin:/bin:/tmp/home/.local/bin" \
+  --setenv HOME            /tmp/home \
+  --setenv USER            "${USER:-user}" \
+  --setenv LOGNAME         "${LOGNAME:-user}" \
+  --setenv SHELL           /bin/sh \
+  --setenv TERM            "${TERM:-xterm-256color}" \
+  --setenv LANG            "${LANG:-C.UTF-8}" \
+  --setenv XDG_RUNTIME_DIR /tmp/runtime \
+  "${env_args[@]}" \
+  --ro-bind /usr /usr \
+  --ro-bind-try /etc/resolv.conf     /etc/resolv.conf \
+  --ro-bind-try /etc/ssl             /etc/ssl \
+  --ro-bind-try /etc/ca-certificates /etc/ca-certificates \
+  --ro-bind-try /etc/nsswitch.conf   /etc/nsswitch.conf \
+  --ro-bind-try /etc/hosts           /etc/hosts \
+  --ro-bind-try /etc/passwd          /etc/passwd \
+  --ro-bind-try /etc/group           /etc/group \
+  --ro-bind-try /etc/localtime       /etc/localtime \
+  --ro-bind-try /etc/ld.so.cache     /etc/ld.so.cache \
+  --symlink usr/bin /bin  \
+  --symlink usr/bin /sbin \
+  --symlink usr/lib /lib  \
+  --symlink usr/lib /lib64 \
+  --proc /proc \
+  --dev  /dev  \
+  --tmpfs /tmp \
+  --dir /tmp/home \
+  --dir /tmp/runtime \
+  --ro-bind-try "$HOME/.local/bin"   /tmp/home/.local/bin \
+  "${extra_binds[@]}" \
+  --bind "$pwd_real" "$pwd_real" \
+  --chdir "$pwd_real" \
+  "${net_args[@]}" \
+  --unshare-pid --unshare-uts --unshare-ipc \
+  --die-with-parent \
+  "$@"
